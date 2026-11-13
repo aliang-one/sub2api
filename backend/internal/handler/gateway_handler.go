@@ -1966,6 +1966,13 @@ func (h *GatewayHandler) handleFailoverExhaustedSimple(c *gin.Context, statusCod
 
 func (h *GatewayHandler) mapUpstreamError(statusCode int) (int, string, string) {
 	switch statusCode {
+	// 上游拒收大请求体（典型：客户端把大图原样 base64 内联，单请求 5MB+）。
+	// 必须原样透传 413 并讲清原因——落进 default 伪装成 502 "Upstream request
+	// failed" 会把客户端引向「上游不稳」的错误方向（2026-11 视频会话七连败的
+	// 定位教训）。对齐 Anthropic 官方 API 的 request_too_large 语义。
+	case http.StatusRequestEntityTooLarge:
+		return http.StatusRequestEntityTooLarge, "request_too_large",
+			"Request body too large, reduce the request size (e.g. downscale inline images)"
 	case 401:
 		return http.StatusBadGateway, "upstream_error", "Upstream authentication failed, please contact administrator"
 	case 403:
