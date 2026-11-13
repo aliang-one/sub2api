@@ -3796,6 +3796,10 @@ func (h *OpenAIGatewayHandler) handleFailoverExhaustedSimple(c *gin.Context, sta
 
 func (h *OpenAIGatewayHandler) mapUpstreamError(statusCode int) (int, string, string) {
 	switch statusCode {
+	// 与 Anthropic 路径同因同果：上游 413 必须透传语义而不是伪装成 502。
+	case http.StatusRequestEntityTooLarge:
+		return http.StatusRequestEntityTooLarge, "request_too_large",
+			"Request body too large, reduce the request size (e.g. downscale inline images)"
 	case 401:
 		return http.StatusBadGateway, "upstream_error", "Upstream authentication failed, please contact administrator"
 	case 403:
