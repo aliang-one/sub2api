@@ -1,0 +1,19 @@
+name: Make Package Public
+on:
+  workflow_dispatch:
+permissions:
+  packages: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set package visibility to public
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -x
+          gh api --method PATCH /user/packages/container/sub2api -f visibility=public 2>&1 || \
+          gh api --method PATCH /user/packages/container/sub2api/visibility -f visibility=public 2>&1 || true
+          echo "--- final visibility:"
+          gh api /user/packages/container/sub2api --jq '.visibility,.visibility_obj' 2>&1 || \
+          gh api /user/packages/container/sub2api 2>&1 | head -5 || true
