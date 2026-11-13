@@ -444,14 +444,23 @@ func (s *GatewayService) handleErrorResponse(ctx context.Context, resp *http.Res
 	}
 
 	// 非 failover 错误也支持错误透传规则匹配。
+	// 413 必须显式映射而不是落进兜底 502 "Upstream request failed"：
+	// 兜底文案会把「请求体过大」伪装成「上游不稳」（2026-11 视频会话 14MB
+	// 请求五连败的定位教训——mapUpstreamError 有同样映射，两处需保持一致）。
+	fallbackStatus, fallbackErrType, fallbackMsg := http.StatusBadGateway, "upstream_error", "Upstream request failed"
+	if resp.StatusCode == http.StatusRequestEntityTooLarge {
+		fallbackStatus, fallbackErrType, fallbackMsg =
+			http.StatusRequestEntityTooLarge, "request_too_large",
+			"Request body too large, reduce the request size (e.g. downscale inline images)"
+	}
 	if status, errType, errMsg, matched := applyErrorPassthroughRule(
 		c,
 		account.Platform,
 		resp.StatusCode,
 		body,
-		http.StatusBadGateway,
-		"upstream_error",
-		"Upstream request failed",
+		fallbackStatus,
+		fallbackErrType,
+		fallbackMsg,
 	); matched {
 		c.JSON(status, gin.H{
 			"type": "error",
